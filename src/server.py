@@ -20,6 +20,15 @@ from fastapi.responses import JSONResponse
 from huggingface_hub import hf_hub_download, snapshot_download
 import uvicorn
 
+try:
+    import gradio as gr
+
+    from ui import UPLOAD_DIR, create_ui
+except ImportError:
+    gr = None
+    UPLOAD_DIR = None
+    create_ui = None
+
 logger = logging.getLogger("scenema-audio")
 
 # Must be set before any torch import
@@ -46,16 +55,27 @@ def _download_models():
 
     token = os.environ.get("HF_TOKEN")
 
-    # Audio transformer (INT8 by default)
+    # Audio transformer (INT8 by default, bf16 when AUDIO_CKPT points at it)
     audio_ckpt = Path(os.environ.get(
         "AUDIO_CKPT",
         str(MODEL_DIR / "scenema-audio-transformer-int8.safetensors"),
     ))
     if not audio_ckpt.exists():
-        logger.info("Downloading audio transformer (INT8, ~4.9 GB)...")
+        audio_filename = audio_ckpt.name
+        if audio_filename not in {
+            "scenema-audio-transformer-int8.safetensors",
+            "scenema-audio-transformer.safetensors",
+        }:
+            audio_filename = "scenema-audio-transformer-int8.safetensors"
+
+        if audio_filename.endswith("-int8.safetensors"):
+            logger.info("Downloading audio transformer (INT8, ~4.9 GB)...")
+        else:
+            logger.info("Downloading audio transformer (bf16, ~9.8 GB)...")
+
         hf_hub_download(
             HF_REPO,
-            "scenema-audio-transformer-int8.safetensors",
+            audio_filename,
             local_dir=str(audio_ckpt.parent),
             token=token,
         )
@@ -140,6 +160,17 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Scenema Audio", lifespan=lifespan)
+
+if gr is not None and create_ui is not None:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    app = gr.mount_gradio_app(
+        app,
+        create_ui(processor, _semaphore),
+        path="/ui",
+        allowed_paths=[str(UPLOAD_DIR)],
+    )
+else:
+    logger.warning("Gradio is not installed; UI will not be available")
 
 
 @app.get("/health")

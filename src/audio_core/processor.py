@@ -16,6 +16,7 @@ import shutil
 import tempfile
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 import numpy as np
@@ -173,6 +174,7 @@ class AudioProcessor:
             prompt: str           - Required. <speak> XML string.
             mode: str             - "generate" (default) or "voice_design".
             reference_voice_url: str | None - URL to reference audio for voice cloning.
+            reference_voice_path: str | None - Internal local upload path for UI use.
             background_sfx: bool  - Keep background SFX (default: false, strips via MelBandRoFormer).
             validate: bool        - Enable Whisper speech validation (default: false).
                                     When true, each generated chunk is transcribed by faster-whisper
@@ -208,6 +210,9 @@ class AudioProcessor:
             "prompt": prompt,
             "mode": mode,
             "reference_voice_url": inp.get("reference_voice_url"),
+            "reference_voice_path": self._normalize_reference_voice_path(
+                inp.get("reference_voice_path")
+            ),
             "background_sfx": inp.get("background_sfx", False),
             "validate": inp.get("validate", True),
             "seed": seed,
@@ -244,8 +249,12 @@ class AudioProcessor:
         logger.info("Planned %d chunk(s)", len(chunks))
 
         ref_wav_path = None
-        if config["reference_voice_url"]:
+        cleanup_ref_wav = False
+        if config["reference_voice_path"]:
+            ref_wav_path = config["reference_voice_path"]
+        elif config["reference_voice_url"]:
             ref_wav_path = await self._download_reference(config["reference_voice_url"])
+            cleanup_ref_wav = True
 
         # skip_vc: seed every chunk with the reference audio's tail latent,
         # identical to how inter-chunk chaining works. The model sees the
@@ -311,10 +320,28 @@ class AudioProcessor:
         # Ensure stereo final output
         wav = ensure_stereo(wav)
 
-        if ref_wav_path and os.path.exists(ref_wav_path):
+        if cleanup_ref_wav and ref_wav_path and os.path.exists(ref_wav_path):
             os.unlink(ref_wav_path)
 
         return wav, sr
+
+    def _normalize_reference_voice_path(self, path: str | None) -> str | None:
+        """Validate an internal UI upload path and return an absolute path."""
+        if not path:
+            return None
+
+        upload_dir = Path(os.environ.get("UPLOAD_DIR", "/app/uploads")).resolve()
+        ref_path = Path(path).resolve()
+
+        try:
+            ref_path.relative_to(upload_dir)
+        except ValueError as exc:
+            raise ValueError("reference_voice_path must be inside UPLOAD_DIR") from exc
+
+        if not ref_path.is_file():
+            raise ValueError(f"reference_voice_path does not exist: {ref_path}")
+
+        return str(ref_path)
 
     def _strip_background(self, wav_np: np.ndarray, sr: int) -> np.ndarray:
         """Strip background music/SFX using MelBandRoFormer.
@@ -469,7 +496,10 @@ class AudioProcessor:
             "mode": config["mode"],
             "seed": config["seed"],
             "background_sfx": config["background_sfx"],
-            "has_reference_voice": config["reference_voice_url"] is not None,
+            "has_reference_voice": (
+                config["reference_voice_url"] is not None
+                or config["reference_voice_path"] is not None
+            ),
             "validate": config["validate"],
             "processing_ms": processing_ms,
             "vram_peak_mb": vram_peak_mb,

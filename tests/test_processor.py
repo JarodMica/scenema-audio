@@ -116,9 +116,49 @@ class TestParseInput:
         config = processor._parse_input(job)
         assert config["reference_voice_url"] == "https://example.com/voice.wav"
 
-    def test_random_seed(self, processor):
+    def test_reference_voice_path_inside_upload_dir(
+        self, processor, tmp_path, monkeypatch
+    ):
+        upload_dir = tmp_path / "uploads"
+        upload_dir.mkdir()
+        reference = upload_dir / "voice.wav"
+        reference.write_bytes(b"fake wav")
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
         job = ProcessJob(
             job_id="test-8",
+            input={
+                "prompt": '<speak voice="V" gender="male">Hello.</speak>',
+                "reference_voice_path": str(reference),
+            },
+        )
+
+        config = processor._parse_input(job)
+        assert config["reference_voice_path"] == str(reference.resolve())
+
+    def test_reference_voice_path_outside_upload_dir_raises(
+        self, processor, tmp_path, monkeypatch
+    ):
+        upload_dir = tmp_path / "uploads"
+        upload_dir.mkdir()
+        reference = tmp_path / "voice.wav"
+        reference.write_bytes(b"fake wav")
+        monkeypatch.setenv("UPLOAD_DIR", str(upload_dir))
+
+        job = ProcessJob(
+            job_id="test-9",
+            input={
+                "prompt": '<speak voice="V" gender="male">Hello.</speak>',
+                "reference_voice_path": str(reference),
+            },
+        )
+
+        with pytest.raises(ValueError, match="inside UPLOAD_DIR"):
+            processor._parse_input(job)
+
+    def test_random_seed(self, processor):
+        job = ProcessJob(
+            job_id="test-10",
             input={
                 "prompt": '<speak voice="V" gender="male">Hello.</speak>',
                 "seed": -1,
@@ -209,6 +249,7 @@ class TestBuildMetadata:
             "validate": False,
             "seed": 42,
             "reference_voice_url": None,
+            "reference_voice_path": None,
         }
         wav = np.zeros(48000, dtype=np.float32)
         metadata = processor._build_metadata(config, wav, 48000, 1234)

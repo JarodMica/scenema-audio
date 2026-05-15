@@ -27,6 +27,14 @@ docker compose up
 
 First startup downloads ~38 GB of model checkpoints and caches them in a Docker volume. Subsequent starts are fast.
 
+Open the local Gradio interface at:
+
+```text
+http://localhost:8000/ui
+```
+
+Uploaded reference audio is stored in `./uploads` on the host and `/app/uploads` inside the container.
+
 ### Generate Audio
 
 ```bash
@@ -374,6 +382,7 @@ Set in `docker-compose.yml` or pass via `docker run -e`:
 | `GEMMA_QUANTIZE` | `nf4` | Gemma quantization. `nf4` for 24 GB cards, empty for bf16 on 48 GB+ |
 | `PORT` | `8000` | HTTP service port |
 | `MODEL_DIR` | `/app/models` | Base directory for model downloads and cache |
+| `UPLOAD_DIR` | `/app/uploads` | Directory for Gradio reference uploads and generated UI outputs |
 
 ## Limitations
 

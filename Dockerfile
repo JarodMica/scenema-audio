@@ -81,8 +81,10 @@ RUN pip install --no-cache-dir "rotary-embedding-torch==0.8.9" "beartype==0.22.9
 # =============================================================================
 
 RUN pip install --no-cache-dir \
-    "fastapi==0.136.1" \
+    "fastapi==0.112.2" \
+    "starlette==0.38.2" \
     "uvicorn[standard]==0.46.0" \
+    "gradio==4.44.1" \
     "httpx==0.28.1" \
     "psutil==7.2.2" \
     "bitsandbytes==0.49.2"
@@ -139,9 +141,13 @@ ENV GEMMA_ROOT=/app/models/gemma-3-12b-it
 ENV MELBAND_MODEL_PATH=/app/models/MelBandRoformer_fp16.safetensors
 ENV MELBAND_NODE_PATH=/app/melband_roformer_node
 ENV SEEDVC_PATH=/app/seed-vc
+ENV UPLOAD_DIR=/app/uploads
 
 ENV PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+ENV LIBRARY_PATH=/usr/local/cuda-12.8/compat
 ENV PORT=8000
+
+RUN mkdir -p /app/uploads
 
 EXPOSE 8000
 

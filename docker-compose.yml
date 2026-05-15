@@ -1,21 +1,25 @@
 services:
   scenema-audio:
     build: .
+    gpus: all
     ports:
-      - "8000:8000"
+      - "8001:8000"
     environment:
       - HF_TOKEN=${HF_TOKEN}
-      - GEMMA_QUANTIZE=nf4
-      - AUDIO_CKPT=/app/models/scenema-audio-transformer-int8.safetensors
+      - GEMMA_QUANTIZE=
+      - AUDIO_CKPT=/app/models/scenema-audio-transformer.safetensors
       - VAE_ENCODER_CKPT=/app/models/scenema-audio-vae-encoder.safetensors
       - PIPELINE_CKPT=/app/models/scenema-audio-pipeline.safetensors
       - GEMMA_ROOT=/app/models/gemma-3-12b-it
       - MELBAND_MODEL_PATH=/app/models/MelBandRoformer_fp16.safetensors
       - SEEDVC_PATH=/app/seed-vc
       - MODEL_DIR=/app/models
+      - UPLOAD_DIR=/app/uploads
+      - LIBRARY_PATH=/usr/local/cuda-12.8/compat
       - PORT=8000
     volumes:
       - model-cache:/app/models
+      - ./uploads:/app/uploads
     deploy:
       resources:
         reservations:
