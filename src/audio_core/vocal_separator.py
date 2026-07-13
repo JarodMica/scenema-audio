@@ -87,6 +87,16 @@ class VocalSeparator:
         node_str = str(self.node_path)
         if node_str not in sys.path:
             sys.path.insert(0, node_str)
+        existing_model_module = sys.modules.get("model")
+        existing_model_path = getattr(existing_model_module, "__file__", "")
+        if existing_model_module is not None and (
+            not hasattr(existing_model_module, "__path__")
+            or (existing_model_path and node_str not in str(existing_model_path))
+        ):
+            # The vendor uses the generic top-level package name ``model``.
+            # Discard an unrelated module cached by the embedding application
+            # before resolving the pinned MelBandRoFormer package.
+            sys.modules.pop("model", None)
         from model.mel_band_roformer import MelBandRoformer
 
         logger.info("Loading MelBandRoFormer from %s", self.model_path)
