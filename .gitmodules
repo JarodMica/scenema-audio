@@ -1,0 +1,6 @@
+[submodule "vendor/seed-vc"]
+	path = vendor/seed-vc
+	url = https://github.com/Plachtaa/seed-vc.git
+[submodule "vendor/ComfyUI-MelBandRoFormer"]
+	path = vendor/ComfyUI-MelBandRoFormer
+	url = https://github.com/kijai/ComfyUI-MelBandRoFormer.git

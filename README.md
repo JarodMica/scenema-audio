@@ -80,6 +80,50 @@ curl -X POST http://localhost:8000/generate \
 
 Any voice can perform any emotion, even if that voice has never been recorded in that emotional state. The reference provides identity. The performance comes from the prompt.
 
+## Stable Python API
+
+The fork includes a CUDA-only class adapter for Audiobook Maker and other local
+applications. Initialize the vendor submodules and sync the Python 3.11 uv
+project first:
+
+```bash
+git submodule update --init --recursive
+uv sync --python 3.11
+```
+
+```python
+from scenema_audio import ScenemaAudioTTSEngine
+
+engine = ScenemaAudioTTSEngine()
+engine.tts_load(
+    model_path="models/scenema_audio",
+    reference_audio_path="reference.wav",  # optional; no transcript required
+    device="cuda",
+)
+output = engine.tts_inference(
+    text="The lantern still burned beside the window.",
+    output_path="output.wav",
+    voice_description="A calm audiobook narrator with measured warmth",
+    gender="female",
+    seed=42,
+)
+engine.close()
+print(output)
+```
+
+The model root must contain the SceneMa transformer, pipeline, VAE encoder,
+Gemma directory, and MelBand checkpoint. The pinned SeedVC and
+MelBandRoFormer source trees are provided as Git submodules. The adapter never
+falls back to CPU.
+
+Run the required real-output API test with:
+
+```bash
+uv run python test_tts_api.py \
+  --model-path path/to/scenema_audio_models \
+  --reference-audio path/to/reference.wav
+```
+
 ## Prompt Format
 
 ```xml

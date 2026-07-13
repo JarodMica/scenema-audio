@@ -123,7 +123,8 @@ class SeedVC:
         torch.cuda.empty_cache()
 
         if self._original_cwd:
-            os.chdir(self._original_cwd)
+            if os.path.isdir(self._original_cwd):
+                os.chdir(self._original_cwd)
             self._original_cwd = None
 
         self._loaded = False

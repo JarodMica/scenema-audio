@@ -101,7 +101,8 @@ class AudioProcessor:
             if torch.cuda.is_available()
             else 0
         )
-        self._keep_resident = vram_gb >= HIGH_VRAM_THRESHOLD_GB
+        preload_postprocessors = os.environ.get("SCENEMA_PRELOAD_POSTPROCESSORS", "1") == "1"
+        self._keep_resident = vram_gb >= HIGH_VRAM_THRESHOLD_GB and preload_postprocessors
         if self._keep_resident:
             self.vocal_separator.load()
             self.seedvc.load()
