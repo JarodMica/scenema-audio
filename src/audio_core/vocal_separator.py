@@ -12,10 +12,12 @@ Expects stereo 44100Hz input. Processes in overlapping chunks for
 smooth transitions.
 """
 
+import importlib
 import logging
 import os
 import subprocess
 import sys
+import types
 from pathlib import Path
 
 import numpy as np
@@ -83,21 +85,19 @@ class VocalSeparator:
         if self._loaded:
             return
 
-        # Lazy import: model architecture only available after node_path added to sys.path
-        node_str = str(self.node_path)
-        if node_str not in sys.path:
-            sys.path.insert(0, node_str)
-        existing_model_module = sys.modules.get("model")
-        existing_model_path = getattr(existing_model_module, "__file__", "")
-        if existing_model_module is not None and (
-            not hasattr(existing_model_module, "__path__")
-            or (existing_model_path and node_str not in str(existing_model_path))
-        ):
-            # The vendor uses the generic top-level package name ``model``.
-            # Discard an unrelated module cached by the embedding application
-            # before resolving the pinned MelBandRoFormer package.
-            sys.modules.pop("model", None)
-        from model.mel_band_roformer import MelBandRoformer
+        # The pinned vendor's ``model`` directory is a namespace package and
+        # collides with common embedding-application modules such as model.py.
+        # Mount it under a private package name so its relative imports remain
+        # valid without mutating or copying the pinned submodule.
+        package_name = "_scenema_melband_model"
+        package_path = self.node_path / "model"
+        if package_name not in sys.modules:
+            package = types.ModuleType(package_name)
+            package.__package__ = package_name
+            package.__path__ = [str(package_path)]
+            sys.modules[package_name] = package
+        melband_module = importlib.import_module(f"{package_name}.mel_band_roformer")
+        MelBandRoformer = melband_module.MelBandRoformer
 
         logger.info("Loading MelBandRoFormer from %s", self.model_path)
 
