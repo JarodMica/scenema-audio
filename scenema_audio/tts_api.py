@@ -142,6 +142,7 @@ class ScenemaAudioTTSEngine:
         melband_model_path: str | Path | None = None,
         melband_source_path: str | Path | None = None,
         seedvc_source_path: str | Path | None = None,
+        seedvc_asset_path: str | Path | None = None,
         device: str = "cuda",
         gemma_quantize: str = "nf4",
         transformer_quantize: str = "",
@@ -159,6 +160,7 @@ class ScenemaAudioTTSEngine:
             melband_model_path=melband_model_path,
             melband_source_path=melband_source_path,
             seedvc_source_path=seedvc_source_path,
+            seedvc_asset_path=seedvc_asset_path,
         )
         reference = self._resolve_optional_file(reference_audio_path, "reference audio")
         options = {
@@ -244,6 +246,7 @@ class ScenemaAudioTTSEngine:
             "MELBAND_MODEL_PATH": paths["melband_model_path"],
             "MELBAND_NODE_PATH": paths["melband_source_path"],
             "SEEDVC_PATH": paths["seedvc_source_path"],
+            "SEEDVC_ASSET_PATH": paths["seedvc_asset_path"],
             "UPLOAD_DIR": Path(self._upload_temp.name),
             "GEMMA_QUANTIZE": str(gemma_quantize),
             "TRANSFORMER_QUANTIZE": str(transformer_quantize),
@@ -295,6 +298,7 @@ class ScenemaAudioTTSEngine:
             "melband_model_path": ("MelBandRoformer_fp16.safetensors",),
             "melband_source_path": ("melband_roformer_node",),
             "seedvc_source_path": ("seed-vc",),
+            "seedvc_asset_path": ("seedvc",),
         }
         source_fallbacks = {
             "melband_source_path": repo_root / "vendor" / "ComfyUI-MelBandRoFormer",
@@ -321,7 +325,12 @@ class ScenemaAudioTTSEngine:
                 raise FileNotFoundError(f"SceneMa Audio {key} was not found. Checked: {searched}")
             resolved[key] = match
 
-        directory_keys = {"gemma_root", "melband_source_path", "seedvc_source_path"}
+        directory_keys = {
+            "gemma_root",
+            "melband_source_path",
+            "seedvc_source_path",
+            "seedvc_asset_path",
+        }
         for key, path in resolved.items():
             expected = path.is_dir() if key in directory_keys else path.is_file()
             if not expected:

@@ -25,6 +25,9 @@ import torch
 logger = logging.getLogger(__name__)
 
 DEFAULT_SEEDVC_PATH = Path(os.environ.get("SEEDVC_PATH", "/app/seed-vc"))
+DEFAULT_SEEDVC_ASSET_PATH = Path(
+    os.environ.get("SEEDVC_ASSET_PATH", str(DEFAULT_SEEDVC_PATH / "checkpoints"))
+)
 DEFAULT_DIFFUSION_STEPS = 25
 DEFAULT_CFG_RATE = 0.5
 
@@ -36,8 +39,13 @@ class SeedVC:
     while preserving the source's delivery, emotion, and pacing.
     """
 
-    def __init__(self, seedvc_path: Path = DEFAULT_SEEDVC_PATH):
-        self.seedvc_path = seedvc_path
+    def __init__(
+        self,
+        seedvc_path: Path = DEFAULT_SEEDVC_PATH,
+        asset_path: Path = DEFAULT_SEEDVC_ASSET_PATH,
+    ):
+        self.seedvc_path = Path(seedvc_path)
+        self.asset_path = Path(asset_path)
         self._loaded = False
         self._original_cwd: str | None = None
         self._app_vc = None
@@ -63,10 +71,16 @@ class SeedVC:
         if seedvc_str not in sys.path:
             sys.path.insert(0, seedvc_str)
 
-        os.environ.setdefault(
-            "HF_HUB_CACHE",
-            str(self.seedvc_path / "checkpoints" / "hf_cache"),
-        )
+        checkpoint_path = self.asset_path / "DiT_seed_v2_uvit_whisper_small_wavenet_bigvgan_pruned.pth"
+        config_path = self.asset_path / "config_dit_mel_seed_uvit_whisper_small_wavenet.yml"
+        if not checkpoint_path.is_file() or not config_path.is_file():
+            raise FileNotFoundError(
+                "SeedVC assets are missing. Expected both "
+                f"{checkpoint_path} and {config_path}."
+            )
+        hf_cache_path = self.asset_path / "hf_cache"
+        hf_cache_path.mkdir(parents=True, exist_ok=True)
+        os.environ["HF_HUB_CACHE"] = str(hf_cache_path)
 
         # Patch BigVGAN for huggingface_hub compat (same as gpu_vc)
         import modules.bigvgan.bigvgan as _bigvgan_mod
@@ -84,10 +98,18 @@ class SeedVC:
         # Load models (exact pattern from gpu_vc/seedvc_engine.py)
         import app_vc
 
+        # app_vc defines a source-relative cache at import time; restore the
+        # explicit engine asset cache so the source submodule stays immutable.
+        os.environ["HF_HUB_CACHE"] = str(hf_cache_path)
         self._app_vc = app_vc
         app_vc.device = torch.device("cuda")
 
-        args = Namespace(checkpoint=None, config=None, fp16=True, gpu=0)
+        args = Namespace(
+            checkpoint=str(checkpoint_path),
+            config=str(config_path),
+            fp16=True,
+            gpu=0,
+        )
         (
             app_vc.model,
             app_vc.semantic_fn,

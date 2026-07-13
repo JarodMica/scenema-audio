@@ -112,9 +112,10 @@ print(output)
 ```
 
 The model root must contain the SceneMa transformer, pipeline, VAE encoder,
-Gemma directory, and MelBand checkpoint. The pinned SeedVC and
-MelBandRoFormer source trees are provided as Git submodules. The adapter never
-falls back to CPU.
+Gemma directory, MelBand checkpoint, and a `seedvc/` asset directory. The
+pinned SeedVC and MelBandRoFormer source trees are provided as immutable Git
+submodules; downloaded SeedVC checkpoints/caches remain under the model root.
+The adapter never falls back to CPU.
 
 Run the required real-output API test with:
 
