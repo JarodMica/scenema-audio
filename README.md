@@ -105,7 +105,7 @@ output = engine.tts_inference(
     output_path="output.wav",
     voice_description="A calm audiobook narrator with measured warmth",
     gender="female",
-    seed=42,
+    seed=-1,  # fresh random take; use a non-negative integer to reproduce one
 )
 engine.close()
 print(output)
@@ -117,13 +117,12 @@ pinned SeedVC and MelBandRoFormer source trees are provided as immutable Git
 submodules; downloaded SeedVC checkpoints/caches remain under the model root.
 The adapter never falls back to CPU.
 
-For audiobook calls through `ScenemaAudioTTSEngine`, delivery-only phrases such
-as `Yelling at top of lungs`, `shouting as loudly as possible`, and equivalent
-screaming cues are normalized into a subject-bearing instruction attached to
-the quoted speech. If entered as the whole voice description or scene, the cue
-is removed from standalone prompt prose, deduplicated, and used only to shape
-the delivery; it must never become spoken text. Environmental scene descriptions
-such as `A crowd shouting in the station` remain unchanged.
+`ScenemaAudioTTSEngine` preserves voice, scene, and action controls exactly as
+provided; it does not infer or rewrite delivery based on words such as `yell`,
+`shout`, or `scream`. Bind delivery explicitly to the speech in `action`, for
+example `She delivers the quoted words with explosive rage at maximum volume`.
+Keep `scene` for audible surroundings. This transparent contract lets callers
+inspect the exact prompt controls and avoids silently changing custom text.
 
 Run the required real-output API test with:
 

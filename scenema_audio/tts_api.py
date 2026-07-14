@@ -6,7 +6,6 @@ import asyncio
 import gc
 import html
 import os
-import re
 import shutil
 import sys
 import tempfile
@@ -15,13 +14,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-
-_INTENSE_DELIVERY_PATTERN = re.compile(
-    r"\b(?:yell(?:ing|ed|s)?|shout(?:ing|ed|s)?|scream(?:ing|ed|s)?)\b"
-    r"(?:\s+(?:at\s+(?:the\s+)?top\s+of\s+(?:(?:his|her|their|my)\s+)?lungs|"
-    r"as\s+loud(?:ly)?\s+as\s+possible))?",
-    flags=re.IGNORECASE,
-)
 
 
 class ScenemaAudioTTSEngine:
@@ -74,7 +66,7 @@ class ScenemaAudioTTSEngine:
         mode: str = "generate",
         background_sfx: bool = False,
         validate: bool = False,
-        seed: int = 42,
+        seed: int = -1,
         pace: float = 1.5,
         min_match_ratio: float = 0.90,
         skip_vc: bool = False,
@@ -232,14 +224,8 @@ class ScenemaAudioTTSEngine:
             raise ValueError("SceneMa Audio voice_description must not be empty.")
         if normalized_gender not in {"male", "female"}:
             raise ValueError("SceneMa Audio gender must be 'male' or 'female'.")
-        description, normalized_scene, normalized_action = (
-            ScenemaAudioTTSEngine._normalize_prompt_controls(
-                description,
-                normalized_gender,
-                scene,
-                action,
-            )
-        )
+        normalized_scene = str(scene or "").strip()
+        normalized_action = str(action or "").strip()
         attributes = [
             f'voice="{html.escape(description, quote=True)}"',
             f'gender="{normalized_gender}"',
@@ -298,74 +284,6 @@ class ScenemaAudioTTSEngine:
                 "and initialize the vendor submodules."
             ) from exc
         return AudioProcessor, ProcessJob
-
-    @staticmethod
-    def _normalize_prompt_controls(
-        description: str,
-        gender: str,
-        scene: str,
-        action: str,
-    ) -> tuple[str, str, str]:
-        normalized_description = " ".join(str(description or "").split())
-        normalized_scene = " ".join(str(scene or "").split())
-        normalized_action = " ".join(str(action or "").split())
-
-        description_match = _INTENSE_DELIVERY_PATTERN.search(normalized_description)
-        scene_delivery_only = bool(
-            normalized_scene
-            and _INTENSE_DELIVERY_PATTERN.fullmatch(normalized_scene.strip(" ,.;:!"))
-        )
-        action_match = _INTENSE_DELIVERY_PATTERN.search(normalized_action)
-        intense_delivery = bool(description_match or scene_delivery_only or action_match)
-        if not intense_delivery:
-            return normalized_description, normalized_scene, normalized_action
-
-        if description_match:
-            if _INTENSE_DELIVERY_PATTERN.fullmatch(normalized_description.strip(" ,.;:!")):
-                normalized_description = f"A forceful {gender} voice"
-            else:
-                normalized_description = _INTENSE_DELIVERY_PATTERN.sub(
-                    "using maximum vocal intensity",
-                    normalized_description,
-                )
-                normalized_description = " ".join(normalized_description.split()).strip(" ,.;:")
-
-        if scene_delivery_only:
-            normalized_scene = ""
-
-        pronoun = "She" if gender == "female" else "He"
-        delivery_instruction = (
-            f"{pronoun} delivers the quoted words at maximum vocal intensity"
-        )
-        if action_match:
-            residual_action = _INTENSE_DELIVERY_PATTERN.sub("", normalized_action)
-            residual_action = re.sub(
-                r"\b(?:and|as|is|that|was|were|while|who)\s*$",
-                "",
-                residual_action,
-                flags=re.IGNORECASE,
-            ).strip(" ,.;:")
-            residual_action = re.sub(
-                r"^(?:and|as|while)\s+",
-                "",
-                residual_action,
-                flags=re.IGNORECASE,
-            ).strip(" ,.;:")
-            if residual_action.lower() in {"he", "she", "they"}:
-                residual_action = ""
-            normalized_action = (
-                f"{residual_action}. {delivery_instruction}"
-                if residual_action
-                else delivery_instruction
-            )
-        elif normalized_action:
-            normalized_action = (
-                f"{normalized_action.rstrip(' .;:')}. {delivery_instruction}"
-            )
-        else:
-            normalized_action = delivery_instruction
-
-        return normalized_description, normalized_scene, normalized_action
 
     @staticmethod
     def _require_cuda(device: str) -> None:
