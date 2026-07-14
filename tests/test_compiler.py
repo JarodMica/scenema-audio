@@ -34,6 +34,20 @@ class TestCompilePrompt:
         assert result.language == "en"
         assert result.gender == "male"
 
+    def test_quoted_speech_delivery_instruction_is_attached_in_closeup_mode(self):
+        xml = (
+            '<speak voice="Forceful female voice" gender="female">'
+            '<action>She delivers the quoted words at maximum vocal intensity</action>'
+            'Run!'
+            '</speak>'
+        )
+        result = compile_prompt(xml)
+        assert (
+            'She delivers the quoted words at maximum vocal intensity: "Run!"'
+            in result.prompt
+        )
+        assert "intensity. \"Run!\"" not in result.prompt
+
     def test_minimal_prompt_no_scene_no_actions(self):
         xml = '<speak voice="Narrator" gender="male">Hello world.</speak>'
         result = compile_prompt(xml)

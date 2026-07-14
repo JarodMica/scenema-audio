@@ -142,12 +142,14 @@ def _compile_blocks(
             # Sound events compile as standalone sentences
             parts.append(_ensure_trailing_punctuation(block.text))
         elif isinstance(block, ActionBlock):
-            if is_scene_mode:
-                # In scene/wide mode, action flows into speech with connector
-                # Don't add punctuation — the colon before the quote handles it
-                parts.append(block.text + ":")
+            is_quoted_speech_instruction = "quoted words" in block.text.lower()
+            if is_scene_mode or is_quoted_speech_instruction:
+                # Delivery instructions explicitly governing the quoted words must
+                # flow into speech even in closeup mode; otherwise the model can
+                # vocalize the instruction as a separate line.
+                parts.append(block.text.rstrip(" .;:") + ":")
             else:
-                # In closeup mode, action is a standalone sentence
+                # Physical closeup actions remain standalone events.
                 parts.append(_ensure_trailing_punctuation(block.text))
         elif isinstance(block, TextBlock):
             clean_text = _ensure_trailing_punctuation(block.text)
