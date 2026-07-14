@@ -91,7 +91,12 @@ class ScenemaAudioTTSEngine:
             reference_audio_path,
             "reference audio",
         ) if reference_audio_path else self._reference_audio_path
-        staged_reference = self._stage_reference(reference) if reference else None
+        runtime_mode, runtime_reference, runtime_skip_vc = self._resolve_generation_contract(
+            mode,
+            reference,
+            skip_vc,
+        )
+        staged_reference = self._stage_reference(runtime_reference) if runtime_reference else None
         destination = self._resolve_output_path(output_path, output_dir)
         prompt = normalized_text if raw_prompt else self._build_prompt(
             normalized_text,
@@ -104,14 +109,14 @@ class ScenemaAudioTTSEngine:
         )
         payload = {
             "prompt": prompt,
-            "mode": str(mode),
+            "mode": runtime_mode,
             "reference_voice_path": str(staged_reference) if staged_reference else None,
             "background_sfx": bool(background_sfx),
             "validate": bool(validate),
             "seed": int(seed),
             "pace": float(pace),
             "min_match_ratio": float(min_match_ratio),
-            "skip_vc": bool(skip_vc),
+            "skip_vc": runtime_skip_vc,
             "vc_steps": int(vc_steps),
             "vc_cfg_rate": float(vc_cfg_rate),
         }
@@ -283,6 +288,19 @@ class ScenemaAudioTTSEngine:
             raise RuntimeError("SceneMa Audio requires a CUDA-enabled PyTorch installation.") from exc
         if not torch.cuda.is_available():
             raise RuntimeError("SceneMa Audio requires CUDA, but torch.cuda.is_available() is false.")
+
+    @staticmethod
+    def _resolve_generation_contract(
+        mode: str,
+        reference: Path | None,
+        skip_vc: bool,
+    ) -> tuple[str, Path | None, bool]:
+        normalized_mode = str(mode or "generate").strip().lower()
+        if normalized_mode == "voice_design":
+            return "generate", None, True
+        if normalized_mode == "generate":
+            return "generate", reference, bool(skip_vc)
+        raise ValueError("SceneMa Audio mode must be 'generate' or 'voice_design'.")
 
     @staticmethod
     def _resolve_model_paths(
